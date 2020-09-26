@@ -1,28 +1,38 @@
 const http = require('http');
-import { v4 as uuidv4 } from 'uuid';
+const { v4: uuidv4 } = require('uuid');
 
-class StatelessHoldem {
+const defaultOptions = {
+    host: 'localhost',
+    port: '3000',
+    protocol: 'http:',
+    prefix: '/api/v1/texasholdem',
+    apikey: '',
+    onLoad: null,
+    onSave: null,
+    games: {}
+}
+module.exports = class StatelessHoldem {
     constructor(options) {
-        this.host = options.host || 'localhost';
-        this.port = options.port || '3000';
-        this.prefix = options.prefix || 'api/v1/texasholdem';
-        this.apikey = options.apikey || '';
-        this.games = {};
+        options = Object.assign(options || {}, defaultOptions);
+
+        this.host = options.host;
+        this.port = options.port;
+        this.protocol = options.protocol;
+        this.prefix = options.prefix;
+        this.apikey = options.apikey;
+
+        this.onLoad = options.onLoad;
+        this.onSave = options.onSave;
+
+        this.games = options.games;
     }
 
-    loadgame(id) {
-        return this.games[id];
-    }
 
-    savegame(id, game) {
-        this.games[id] = game;
-    }
+    async newgame(options) {
 
-    async newgame(params) {
+        let id = uuidv4().replace(/\-/ig, '');
 
-        let id = uuidv4();
-
-        params = params || {
+        options = options || {
             "rules": {
                 "deck": {
                     "decks": 1,
@@ -36,58 +46,97 @@ class StatelessHoldem {
             }
         };
 
-        params = await this.post('newgame', params);
-        this.savegame(id, params);
+        await this.doAction(id, 'newgame', options)
+        return id;
+    }
+
+    async newround(id) {
+        return await this.doAction(id, 'newround')
+    }
+
+    async playerjoin(id, name, chips, seat) {
+
+        if (!name || name.length == 0)
+            return false;
+
+        chips = chips || 0;
+        seat = seat || 0;
+
+        let action = `playerjoin/${name}/${chips}/${seat}`;
+        console.log(action);
+        return await this.doAction(id, action);
+    }
+
+    async playerleave(id, name) {
+
+        if (!name || name.length == 0)
+            return false;
+
+        let action = `playerleave/${name}`;
+        console.log(action);
+        return await this.doAction(id, action);
+    }
+
+    async doAction(id, action, game) {
+        try {
+            game = game || (await this.getGame(id));
+            console.log(action, game);
+            game = await this.httpPOST(action, game);
+            await this.setGame(id, game);
+        }
+        catch (e) {
+            console.error(e);
+            return false;
+        }
+        return true;
     }
 
 
-    async post(action, payload) {
-        return new Promise((rs, rj) => {
+    async getGame(id) {
+        if (this.onLoad)
+            return this.onLoad(id);
+        return this.games[id];
+    }
 
+    async setGame(id, game) {
+        if (this.onSave)
+            return this.onSave(id);
+        console.log("saving:", game);
+        this.games[id] = game;
+    }
+
+    async httpPOST(action, payload) {
+        return new Promise((rs, rj) => {
             try {
                 var options = {
                     host: this.host,
-                    //since we are listening on a custom port, we need to specify it by hand
                     port: this.port,
-                    //This is what changes the request to a POST request
+                    protocol: this.protocol,
+                    path: this.prefix + '/' + action,
                     method: 'POST',
-                    headers: {
-                    }
+                    headers: {}
                 };
 
-                options.path = this.prefix + '/' + action;
+                if (this.apikey && this.apikey.length > 0)
+                    options.headers['X-API-KEY'] = this.apikey;
 
-                let callback = function (response) {
+                var req = http.request(options, response => {
                     var str = ''
-                    response.on('data', function (chunk) {
-                        str += chunk;
+                    response.on('data', chunk => { str += chunk });
+                    response.on('end', () => {
+                        try { rs(JSON.parse(str)); }
+                        catch (e) { console.error(e); rj(e); }
                     });
+                });
 
-                    response.on('end', function () {
-                        try {
-                            let json = JSON.parse(str);
-                            rs(json);
-                        }
-                        catch (e) {
-                            rj(e);
-                        }
-                    });
-                }
-
-                var req = http.request(options, callback);
-                let jsonStr = JSON.stringify(payload);
-                //This is the data we are posting, it needs to be a string or a buffer
-                req.write(jsonStr);
+                console.log("payload", JSON.stringify(payload))
+                req.write(JSON.stringify(payload));
                 req.end();
-
             }
             catch (e) {
                 console.error(e);
                 rj(e);
             }
-
         })
     }
 };
-
-module.exports = new StatelessHoldem();
