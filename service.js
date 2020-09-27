@@ -63,7 +63,6 @@ module.exports = class StatelessHoldem {
         seat = seat || 0;
 
         let action = `playerjoin/${name}/${chips}/${seat}`;
-        console.log(action);
         return await this.doAction(id, action);
     }
 
@@ -73,15 +72,20 @@ module.exports = class StatelessHoldem {
             return false;
 
         let action = `playerleave/${name}`;
-        console.log(action);
         return await this.doAction(id, action);
     }
 
     async doAction(id, action, game) {
         try {
             game = game || (await this.getGame(id));
-            console.log(action, game);
-            game = await this.httpPOST(action, game);
+            //console.log(action, game);
+            let changes = await this.httpPOST(action, game);
+            console.log("changes:", JSON.stringify(changes, null, 2));
+            if (action == 'newgame')
+                game = changes;
+            else
+                game = this.merge(changes, game);
+            //console.log("game:", game);
             await this.setGame(id, game);
         }
         catch (e) {
@@ -89,6 +93,34 @@ module.exports = class StatelessHoldem {
             return false;
         }
         return true;
+    }
+
+    isObject(x) {
+        return x != null && (typeof x === 'object' || typeof x === 'function') && !Array.isArray(x);
+    }
+
+    merge(from, to) {
+
+        for (var key in from) {
+
+            if (!(key in to)) {
+                to[key] = from[key];
+                continue;
+            }
+
+            if (Array.isArray(from[key])) {
+                to[key] = from[key];
+                continue;
+            }
+            if (this.isObject(from[key])) {
+                to[key] = this.merge(from[key], to[key])
+                continue;
+            }
+
+            to[key] = from[key];
+        }
+
+        return to;
     }
 
 
@@ -101,20 +133,25 @@ module.exports = class StatelessHoldem {
     async setGame(id, game) {
         if (this.onSave)
             return this.onSave(id);
-        console.log("saving:", game);
+        //console.log("saving:", game);
         this.games[id] = game;
     }
 
     async httpPOST(action, payload) {
         return new Promise((rs, rj) => {
             try {
+                payload = JSON.stringify(payload);
+                //payload = Buffer.from(payload, 'utf8');
                 var options = {
                     host: this.host,
                     port: this.port,
                     protocol: this.protocol,
                     path: this.prefix + '/' + action,
                     method: 'POST',
-                    headers: {}
+                    headers: {
+                        'Content-Length': Buffer.byteLength(payload),
+                        'Content-Type': 'application/json'
+                    }
                 };
 
                 if (this.apikey && this.apikey.length > 0)
@@ -122,15 +159,23 @@ module.exports = class StatelessHoldem {
 
                 var req = http.request(options, response => {
                     var str = ''
+                    response.setEncoding('utf8');
                     response.on('data', chunk => { str += chunk });
                     response.on('end', () => {
-                        try { rs(JSON.parse(str)); }
+                        try {
+                            let result = JSON.parse(str);
+                            rs(result);
+                        }
                         catch (e) { console.error(e); rj(e); }
+                    });
+                    response.on('error', (e) => {
+                        console.error(e);
+                        rj(e);
                     });
                 });
 
-                console.log("payload", JSON.stringify(payload))
-                req.write(JSON.stringify(payload));
+                //console.log("payload size: " + Buffer.byteLength(payload), payload)
+                req.write(payload);
                 req.end();
             }
             catch (e) {
