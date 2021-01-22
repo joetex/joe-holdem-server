@@ -19,8 +19,8 @@ async function printParams(id) {
     console.log(JSON.stringify(params, (key, val) => {
         if (Array.isArray(val) && typeof val[0] !== 'object')
             return val.join(',');
-        if (key == 'game')
-            return '';
+        // if (key == 'game')
+        //     return '';
         return val;
     }, 2));
 }
@@ -48,11 +48,11 @@ async function updatePlayerCards(id, name, cards) {
 async function testGame1() {
     let id = await holdem.newgame();
     //console.log(id);
-    await holdem.playerjoin(id, 'Joel', 90)
+    await holdem.playerjoin(id, 'Joel', 100)
     await holdem.playerjoin(id, 'Tim', 100)
     await holdem.playerjoin(id, 'Bob', 100)
     await holdem.playerjoin(id, 'Bob2', 100)
-    await holdem.playerjoin(id, 'Bob3', 100)
+    await holdem.playerjoin(id, 'Bob3', 94)
     await holdem.playerjoin(id, 'Bob4', 100)
     await holdem.playerjoin(id, 'Bob5', 100)
 
@@ -67,20 +67,16 @@ async function testGame1() {
     await updatePlayerCards(id, 'Bob4', ['4S', 'WW']);
     await updatePlayerCards(id, 'Bob5', ['7S', 'QD']);
 
-
-
-    await holdem.action(id, 'fold'); //p1
+    await holdem.action(id, 'raise/90'); //p1
     await holdem.action(id, 'fold'); //p2
     await holdem.action(id, 'fold'); //p3
-    await holdem.action(id, 'raise/90'); //p4
-    await holdem.action(id, 'raise/6'); //p5
+    await holdem.action(id, 'fold'); //p4
+    await holdem.action(id, 'fold'); //p5
     await holdem.action(id, 'fold'); //p6
-
-    await holdem.action(id, 'fold'); //p7
-
-    // await holdem.action(id, 'call'); //p8
-
-    // await holdem.action(id, 'call');
+    //await holdem.action(id, 'fold'); //p7
+    //updateTableCards(id, ['9S', 'JC', 'KD', '3S', '9D']);
+    await holdem.action(id, 'raise/6'); //p8
+    //await holdem.action(id, 'call');
 
     //await holdem.action(id, 'check');
     // await holdem.action(id, 'check');
