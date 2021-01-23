@@ -3,7 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 
 const defaultOptions = {
     host: 'localhost',
-    port: '3000',
+    port: '8000',
     protocol: 'http:',
     prefix: '/api/v1/texasholdem',
     apikey: '',
@@ -24,7 +24,8 @@ module.exports = class StatelessHoldem {
         this.onLoad = options.onLoad;
         this.onSave = options.onSave;
 
-        this.games = options.games;
+        this.games = options.games || {};
+        this.changes = options.changes || {};
 
         this.totalSize = 0;
     }
@@ -36,11 +37,11 @@ module.exports = class StatelessHoldem {
         return id;
     }
 
-    async newgame(options) {
+    async newgame(params) {
 
         let id = uuidv4().replace(/\-/ig, '');
 
-        options = options || {
+        params = params || {
             "rules": {
                 "deck": {
                     "decks": 1,
@@ -54,14 +55,42 @@ module.exports = class StatelessHoldem {
             }
         };
 
-        await this.action(id, 'newgame', options)
-        return id;
-    }
-
-    async getGame(id) {
+        params.id = id;
+        let newParams = await this.action(id, 'newgame', params)
         let game = await this.getGame(id);
         return game;
     }
+    async getGame(id) {
+        if (this.onLoad)
+            return this.onLoad(id);
+        return this.games[id];
+    }
+
+    async updateGame(id, game, changes) {
+        if (this.onSave)
+            return this.onSave(id);
+        //console.log("saving:", game);
+
+        this.games[id] = game;
+        this.changes[id] = changes || {};
+        return game;
+    }
+
+    async listgames() {
+        let gamelist = {};
+        for (var id in this.games) {
+            let game = this.games[id];
+            let players = Object.keys(game.state.players);
+            gamelist[id] = {
+                id,
+                players,
+                rules: { ...game.rules }
+            }
+        }
+
+        return gamelist;
+    }
+
     async getplayer(id, name) {
         let game = await this.getGame(id);
         return game.state.players[name];
@@ -112,13 +141,13 @@ module.exports = class StatelessHoldem {
             else
                 game = this.merge(changes, game);
             //console.log("game:", game);
-            await this.setGame(id, game);
+            await this.updateGame(id, game, changes);
         }
         catch (e) {
             console.error(e);
-            return false;
+            throw e;
         }
-        return true;
+        return game;
     }
 
     isObject(x) {
@@ -150,18 +179,7 @@ module.exports = class StatelessHoldem {
     }
 
 
-    async getGame(id) {
-        if (this.onLoad)
-            return this.onLoad(id);
-        return this.games[id];
-    }
 
-    async setGame(id, game) {
-        if (this.onSave)
-            return this.onSave(id);
-        //console.log("saving:", game);
-        this.games[id] = game;
-    }
 
     printTotalSize() {
         console.log(this.totalSize);

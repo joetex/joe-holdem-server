@@ -2,10 +2,13 @@ const StatelessHoldem = require('./service');
 
 const holdem = new StatelessHoldem();
 
+const api = require('./api');
+
 async function run() {
 
+    api();
 
-    testGame1();
+    // testGame1();
 
     // testWin1();
 
