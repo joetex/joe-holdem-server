@@ -1,6 +1,6 @@
-const StatelessHoldem = require('./service');
+const Holdem = require('./services/holdem');
 
-const holdem = new StatelessHoldem();
+const holdem = new Holdem();
 
 const api = require('./api');
 

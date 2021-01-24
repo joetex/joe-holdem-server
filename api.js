@@ -1,19 +1,49 @@
 const express = require('express');
-const socketio = require('socket.io');
 const cors = require('cors');
 const app = express()
 var http = require('http').createServer(app);
-var io = require('socket.io')(http);
-
+const cookieParser = require('cookie-parser');
+const session = require('express-session');
 const port = 8080
 
-const StatelessHoldem = require('./service');
-const holdem = new StatelessHoldem();
+const Holdem = require('./services/holdem');
+const holdem = new Holdem();
+const authentication = require('./services/authentication');
 
 function createAPI() {
 
-    app.use(express.json())
-    app.use(cors());
+    app.use(cors({
+        origin: [
+            'http://localhost:3000', 'http://localhost:8080', 'http://localhost:8000', '*'
+        ],
+        methods: ['GET', 'POST', 'PUT', 'DELETE'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-API-KEY'],
+        credentials: true
+    }));
+
+    app.use(session({
+        secret: 'MYSECRETKEYHAHAHAH',
+        resave: false,
+        saveUninitialized: true,
+        cookie: { secure: false }
+    }))
+    app.use(cookieParser());
+    app.use(express.json());
+
+
+
+    // app.all('*', function (request, response, next) {
+    //     response.header("Access-Control-Allow-Origin", "*");
+    //     response.header("Access-Control-Allow-Headers", "X-Requested-With");
+    //     next();
+    // });
+
+    app.use((req, res, next) => authentication.checkLogin(req, res, next));
+
+    app.get('/apikey', async (req, res) => {
+        let apikey = req.session.apikey || 'INVALID';
+        res.json({ apikey });
+    })
 
     app.post('/creategame', async (req, res) => {
         let params = req.body;
@@ -44,11 +74,32 @@ function createAPI() {
 
 }
 
+
+
 function createWebSockets() {
+    var io = require('socket.io')(http, {
+        cookie: true,
+        transports: ['websocket', 'polling'],
+        // cors: {
+        //     origin: "*",
+        //     methods: ["GET", "POST"],
+        //     allowedHeaders: ["X-API-KEY"],
+        //     credentials: true
+        // },
+        // origins: "*",
+        // handlePreflightRequest: (req, res) => {
+        //     res.writeHead(200, {
+        //         "Access-Control-Allow-Origin": "*",
+        //         "Access-Control-Allow-Methods": "GET,POST",
+        //         "Access-Control-Allow-Headers": "X-API-KEY",
+        //         "Access-Control-Allow-Credentials": true
+        //     });
+        //     res.end();
+        // }
+    });
 
     io.on('connection', client => {
-        client.on('event', data => { /* … */ });
-        client.on('disconnect', () => { /* … */ });
+        holdem.clientconnected(client);
     });
 
 }
