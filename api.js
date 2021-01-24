@@ -4,11 +4,14 @@ const app = express()
 var http = require('http').createServer(app);
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
+const MemoryStore = require('memorystore')(session)
 const port = 8080
 
-const Holdem = require('./services/holdem');
-const holdem = new Holdem();
+
 const authentication = require('./services/authentication');
+
+const GameManager = require('./services/gamemanager');
+const gm = new GameManager();
 
 function createAPI() {
 
@@ -21,7 +24,12 @@ function createAPI() {
         credentials: true
     }));
 
+
+
     app.use(session({
+        store: new MemoryStore({
+            checkPeriod: 86400000 // prune expired entries every 24h
+        }),
         secret: 'MYSECRETKEYHAHAHAH',
         resave: false,
         saveUninitialized: true,
@@ -29,8 +37,6 @@ function createAPI() {
     }))
     app.use(cookieParser());
     app.use(express.json());
-
-
 
     // app.all('*', function (request, response, next) {
     //     response.header("Access-Control-Allow-Origin", "*");
@@ -41,37 +47,22 @@ function createAPI() {
     app.use((req, res, next) => authentication.checkLogin(req, res, next));
 
     app.get('/apikey', async (req, res) => {
-        let apikey = req.session.apikey || 'INVALID';
+        let apikey = req.session.user.apikey || 'INVALID';
         res.json({ apikey });
     })
 
     app.post('/creategame', async (req, res) => {
         let params = req.body;
-        let newParams = await holdem.newgame(params);
+        let newParams = await gm.holdem.newgame(params);
         console.log(newParams);
         res.json(newParams);
     })
 
     app.post('/listgames', async (req, res) => {
-        let gamelist = await holdem.listgames();
+        let gamelist = await gm.listgames();
         console.log(gamelist);
         res.json(gamelist);
     })
-
-    app.post('/joingame/:id', (req, res) => {
-        res.send('Hello World!')
-    })
-
-
-    app.post('/playerjoin', (req, res) => {
-        res.send('Hello World!')
-    })
-
-    app.post('/playerleave', (req, res) => {
-        res.send('Hello World!')
-    })
-
-
 }
 
 
@@ -99,7 +90,7 @@ function createWebSockets() {
     });
 
     io.on('connection', client => {
-        holdem.clientconnected(client);
+        gm.onclientconnected(client);
     });
 
 }

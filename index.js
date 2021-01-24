@@ -1,6 +1,6 @@
 const Holdem = require('./services/holdem');
 
-const holdem = new Holdem();
+// const holdem = new Holdem();
 
 const api = require('./api');
 
@@ -18,7 +18,7 @@ async function run() {
 }
 
 async function printParams(id) {
-    let params = await holdem.getGame(id);
+    let params = holdem.getGame(id);
     console.log(JSON.stringify(params, (key, val) => {
         if (Array.isArray(val) && typeof val[0] !== 'object')
             return val.join(',');
@@ -40,13 +40,13 @@ async function testWin1() {
 }
 
 async function updateTableCards(id, cards) {
-    let game = await holdem.getGame(id);
+    let game = holdem.getGame(id);
     game.state.table = cards;
 }
 
 async function updatePlayerCards(id, name, cards) {
-    let player = await holdem.getplayer(id, name);
-    player.cards = cards;
+    // let player = await holdem.getplayer(id, name);
+    // player.cards = cards;
 }
 async function testGame1() {
     let id = await holdem.newgame();

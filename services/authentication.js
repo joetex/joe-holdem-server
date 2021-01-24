@@ -11,23 +11,28 @@ class Authentication {
         return uuidv4().replace(/\-/ig, '');
     }
 
-    async checkLogin(request, response, next) {
+    checkLogin(request, response, next) {
 
-        if (!request.session.authenticated) {
+        if (!request.session.user) {
             //do login flow
-            let passed = await this.loginUser(request, response);
+            let passed = this.loginUser(request, response);
             if (!passed) {
                 console.log("User is not authenticated");
                 response.json({ error: "E_INVALID_AUTH" });
                 return;
             }
         }
+        else {
+            let user = request.session.user;
+            this.users[user.apikey] = user;
+        }
+
 
         next();
     }
 
     //TODO: redirect user to login, must implement OIDC/Social login flow
-    async loginUser(request, response) {
+    loginUser(request, response) {
         let session = request.session;
         let apikey = this.generateAPIKey();
 
@@ -45,7 +50,7 @@ class Authentication {
         return true;
     }
 
-    async checkAPIKey(client, data) {
+    checkAPIKey(client, data) {
         if (!('X-API-KEY' in data)) {
             return false;
         }
@@ -65,13 +70,16 @@ class Authentication {
         return true;
     }
 
-    async getUserBySession(session) {
+    removeUser(user) {
+        delete this.users[user.apikey];
+    }
+    getUserBySession(session) {
         return session.user;
     }
-    async getUserByClient(client) {
+    getUserByClient(client) {
         return client.user;
     }
-    async getUser(apikey) {
+    getUser(apikey) {
         if (!(apikey in this.users))
             return null;
         return this.users[apikey];

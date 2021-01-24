@@ -15,6 +15,7 @@ class Helper {
     clone(from) {
         return JSON.parse(JSON.stringify(from));
     }
+
     merge(from, to) {
 
         for (var key in from) {
