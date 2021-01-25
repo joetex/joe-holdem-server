@@ -41,8 +41,31 @@ module.exports = class Holdem {
         return game;
     }
 
+    async onaction(user, data) {
+        let game = this.gm.getGame(user.gameid);
+        if (game.winners) {
+            return;
+        }
+        let action = data.action;
+        let payload = data.payload;
+
+        if (action == 'raise') {
+            action += '/' + payload;
+        }
+
+        game = await this.gm.action(user.gameid, action, game);
+
+        if (game.winners) {
+            setTimeout(() => { game.winners = false; this.newround(user.gameid) }, 5000);
+        }
+    }
+
     async newround(id) {
         return await this.gm.action(id, 'newround')
+    }
+
+    async call(id, playerid) {
+
     }
 
     async playerjoin(id, playerid, chips, seat) {

@@ -108,9 +108,7 @@ module.exports = class GameManager {
         client.on('ready', (data) => { this.onclientready(client, data) });
     }
 
-    async onaction(client, data) {
 
-    }
 
     async onplayerjoin(client, data) {
         let user = client.user;
@@ -281,19 +279,29 @@ module.exports = class GameManager {
         })
     }
 
+    async onaction(client, data) {
+
+        let user = client.user;
+        let action = data.action;
+        let playerid = user.playerid;
+
+        let game = await this.api(user.gameid).onaction(user, data);
+    }
+
     async action(id, action, game) {
         try {
             game = game || (this.getGame(id));
 
-            if (action == 'newround') {
-                if (game['winners'])
-                    delete game['winners']
-                if (game['hands'])
-                    delete game['hands']
-            }
+            // if (action == 'newround') {
+            //     if (game['winners'])
+            //         delete game['winners']
+            //     if (game['hands'])
+            //         delete game['hands']
+            // }
 
             let changes = await this.httpPOST(action, game);
-            await this.updateGame(id, game, changes);
+            if (!changes.error)
+                await this.updateGame(id, game, changes);
         }
         catch (e) {
             console.error(e);

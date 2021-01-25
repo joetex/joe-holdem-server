@@ -20,6 +20,10 @@ class Helper {
 
         for (var key in from) {
 
+            if (!this.isObject(to)) {
+                to = from;
+                break;
+            }
             if (!(key in to)) {
                 to[key] = from[key];
                 continue;
