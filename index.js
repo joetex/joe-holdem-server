@@ -4,10 +4,15 @@ const Holdem = require('./services/holdem');
 
 const api = require('./api');
 
+const GameManager = require('./services/gamemanager');
+const gm = new GameManager();
+
 async function run() {
 
-    api();
+    //api();
 
+    let id = await gm.holdem.newgame();
+    console.log(id);
     // testGame1();
 
     // testWin1();

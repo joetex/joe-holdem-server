@@ -63,14 +63,44 @@ module.exports = class GameManager {
         }
     }
 
-    onclientdisconnected(client, reason) {
+    async onclientdisconnected(client, reason) {
         if (client.user) {
             let gameid = client.user.gameid;
-            this.api(gameid).playerleave(gameid, client.user.playerid);
+            await this.api(gameid).playerleave(gameid, client.user.playerid);
+
+            this.isGameValid(gameid);
         }
 
         console.log("Client disconnected [reason: " + reason + "]", client.id);
         this.unregisterClient(client);
+    }
+
+    getPlayerCount(game) {
+        let playerCount = 0;
+        if (game.state.players) {
+            playerCount = Object.keys(game.state.players).length
+        }
+        return playerCount;
+    }
+
+    isGameValid(gameid) {
+        try {
+            let game = this.getGame(gameid);
+            let playerCount = this.getPlayerCount(game);
+            if (playerCount > 0)
+                return true;
+
+            this.removeGame(gameid);
+        }
+        catch (e) {
+        }
+        return false;
+    }
+
+    removeGame(gameid) {
+        delete this.games[gameid];
+        delete this.cleaned[gameid];
+        delete this.changes[gameid];
     }
 
     requestAuthentication(client) {
@@ -135,15 +165,11 @@ module.exports = class GameManager {
         }
     }
 
-    onclientready(client, data) {
-        client.user.ready = data.ready;
-        let game = this.getGame(data.gameid);
-        let changes = { state: { players: { [client.user.playerid]: { ready: data.ready } } } };
-
+    countready(game, skipid) {
         let isEveryoneReady = true;
         for (var playerid in game.state.players) {
 
-            if (client.user.playerid == playerid)
+            if (skipid == playerid)
                 continue;
 
             let player = game.state.players[playerid];
@@ -152,17 +178,22 @@ module.exports = class GameManager {
             isEveryoneReady = false;
             break;
         }
+        return isEveryoneReady;
+    }
+
+    onclientready(client, data) {
+        client.user.ready = data.ready;
+
+        let game = this.getGame(data.gameid);
+        let changes = { state: { players: { [client.user.playerid]: { ready: data.ready } } } };
+        let isEveryoneReady = this.countready(game, client.user.playerid);
 
         if (data.ready && isEveryoneReady) {
             this.api(data.gameid).newround(data.gameid);
         } else {
             this.updateGame(game.id, game, changes);
         }
-
-        // this.notifyAll('ready', game.id);
     }
-
-
 
     getPlayer(playerid) {
         let player = this.players[playerid];
@@ -176,6 +207,8 @@ module.exports = class GameManager {
             throw { error: "E_INVALID_GAME" };
         return this.games[id];
     }
+
+
 
     listgames() {
         let gamelist = {};
@@ -212,8 +245,19 @@ module.exports = class GameManager {
 
         this.notifyAll(action, id);
 
-        if ('_delete' in changes) {
-            let playerid = changes._delete;
+        this.postUpdateCleanup(game);
+        return game;
+    }
+
+    postUpdateCleanup(game) {
+
+        if ('winners' in game) {
+            this.nextround(game);
+            delete game['winners'];
+        }
+
+        if ('_delete' in game) {
+            let playerid = game._delete;
             for (var i = 0; i < game.state.seats.length; i++) {
                 let seat = game.state.seats[i];
                 if (seat != playerid)
@@ -224,7 +268,24 @@ module.exports = class GameManager {
             // game.state.seats[seatid] = false;
             delete game.state.players[playerid];
         }
-        return game;
+
+        this.games[game.id] = game;
+    }
+
+    nextround(game) {
+        setTimeout(() => {
+            //game.winners = false;
+            try {
+                if (!this.isGameValid(game.id))
+                    return;
+                this.api(game.id).newround(game.id)
+            }
+            catch (e) {
+                //game probably doesn't exist, just let it die!
+                console.log(e);
+            }
+
+        }, game.rules.game.newroundDelay || 5000);
     }
 
     getGamePlayerIds(game) {

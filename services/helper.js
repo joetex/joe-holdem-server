@@ -16,6 +16,32 @@ class Helper {
         return JSON.parse(JSON.stringify(from));
     }
 
+    //Merge changes from one object to another
+    //Detect object key deletion?
+    //Detect array item changes?
+    merge2(from, to) {
+        if (!this.isObject(to)) {
+            to = from;
+            return to;
+        }
+        for (var key in from) {
+            if (!(key in to)) {
+                to[key] = from[key];
+                continue;
+            }
+
+            if (Array.isArray(from[key])) {
+                to[key] = from[key];
+                continue;
+            }
+            if (this.isObject(from[key])) {
+                to[key] = this.merge(from[key], to[key])
+                continue;
+            }
+
+        }
+    }
+
     merge(from, to) {
 
         for (var key in from) {

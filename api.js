@@ -104,5 +104,7 @@ module.exports = function run() {
         var port = http.address().port
         console.log('App listening at http://%s:%s', host, port)
     });
+
+    return gm;
 }
 

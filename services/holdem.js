@@ -1,4 +1,5 @@
 const http = require('http');
+const { restart } = require('nodemon');
 const { v4: uuidv4 } = require('uuid');
 
 const helper = require('./helper');
@@ -54,11 +55,9 @@ module.exports = class Holdem {
         }
 
         game = await this.gm.action(user.gameid, action, game);
-
-        if (game.winners) {
-            setTimeout(() => { game.winners = false; this.newround(user.gameid) }, 5000);
-        }
     }
+
+
 
     async newround(id) {
         return await this.gm.action(id, 'newround')
